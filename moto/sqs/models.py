@@ -3,7 +3,10 @@ from __future__ import unicode_literals
 import base64
 import hashlib
 import json
+import random
 import re
+import string
+
 import six
 import struct
 from copy import deepcopy
@@ -67,7 +70,7 @@ DEDUPLICATION_TIME_IN_SECONDS = 300
 
 
 class Message(BaseModel):
-    def __init__(self, message_id, body):
+    def __init__(self, message_id, body, system_attributes={}):
         self.id = message_id
         self._body = body
         self.message_attributes = {}
@@ -78,8 +81,10 @@ class Message(BaseModel):
         self.approximate_receive_count = 0
         self.deduplication_id = None
         self.group_id = None
+        self.sequence_number = None
         self.visible_at = 0
         self.delayed_until = 0
+        self.system_attributes = system_attributes
 
     @property
     def body_md5(self):
@@ -669,6 +674,7 @@ class SQSBackend(BaseBackend):
         delay_seconds=None,
         deduplication_id=None,
         group_id=None,
+        system_attributes=None,
     ):
 
         queue = self.get_queue(queue_name)
@@ -685,7 +691,7 @@ class SQSBackend(BaseBackend):
             delay_seconds = queue.delay_seconds
 
         message_id = get_random_message_id()
-        message = Message(message_id, message_body)
+        message = Message(message_id, message_body, system_attributes)
 
         # if content based deduplication is set then set sha256 hash of the message
         # as the deduplication_id
@@ -697,6 +703,9 @@ class SQSBackend(BaseBackend):
         # Attributes, but not *message* attributes
         if deduplication_id is not None:
             message.deduplication_id = deduplication_id
+            message.sequence_number = "".join(
+                random.choice(string.digits) for _ in range(20)
+            )
         if group_id is not None:
             message.group_id = group_id
 

@@ -979,6 +979,17 @@ def test_acl_switching():
     ), grants
 
 
+@mock_s3
+def test_acl_switching_nonexistent_key():
+    s3 = boto3.client("s3", region_name=DEFAULT_REGION_NAME)
+    s3.create_bucket(Bucket="mybucket")
+
+    with pytest.raises(ClientError) as e:
+        s3.put_object_acl(Bucket="mybucket", Key="nonexistent", ACL="private")
+
+    e.value.response["Error"]["Code"].should.equal("NoSuchKey")
+
+
 @mock_s3_deprecated
 def test_bucket_acl_setting():
     conn = boto.connect_s3()
@@ -5002,10 +5013,10 @@ def test_get_unknown_version_should_throw_specific_error():
 
     with pytest.raises(ClientError) as e:
         client.get_object(Bucket=bucket_name, Key=object_key, VersionId="unknown")
-    e.value.response["Error"]["Code"].should.equal("InvalidArgument")
-    e.value.response["Error"]["Message"].should.equal("Invalid version id specified")
-    e.value.response["Error"]["ArgumentName"].should.equal("versionId")
-    e.value.response["Error"]["ArgumentValue"].should.equal("unknown")
+    e.value.response["Error"]["Code"].should.equal("NoSuchVersion")
+    e.value.response["Error"]["Message"].should.equal(
+        "The specified version does not exist."
+    )
 
 
 @mock_s3
